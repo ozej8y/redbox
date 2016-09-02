@@ -527,7 +527,7 @@ public class CurationManager extends GenericTransactionManager {
 	 * @returns JsonSimple The response object to send back to the queue
 	 *          consumer
 	 */
-	private JsonSimple curation(JsonSimple message, String task, String oid) {
+	private JsonSimple curation(JsonSimple message, String task, String oid) throws TransactionException {
 		JsonSimple response = new JsonSimple();
 
 		// *******************
@@ -1270,7 +1270,7 @@ public class CurationManager extends GenericTransactionManager {
 	 * @param oid
 	 *            The object identifier to publish
 	 */
-	private void publishRelations(JsonSimple response, String oid) {
+	private void publishRelations(JsonSimple response, String oid) throws TransactionException {
 		log.debug("Publishing Children of '{}'", oid);
 
 		JsonSimple data = getDataFromStorage(oid);
