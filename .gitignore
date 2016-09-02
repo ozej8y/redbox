@@ -27,3 +27,5 @@ config/src/main/config/portal/default/redbox/scripts/hkjobs/new-alerts/alertlib/
 config/src/main/config/portal/default/redbox/scripts/hkjobs/new-alerts/alertlib/test/config-new/
 config/src/main/config/home/lib/jython/alertlib/test/test-alerts
 
+
+*.iml
