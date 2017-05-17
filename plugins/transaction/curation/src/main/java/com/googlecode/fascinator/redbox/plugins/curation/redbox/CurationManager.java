@@ -539,7 +539,7 @@ public class CurationManager extends GenericTransactionManager {
 	 * @returns JsonSimple The response object to send back to the queue
 	 *          consumer
 	 */
-	private JsonSimple curation(JsonSimple message, String task, String oid) {
+	private JsonSimple curation(JsonSimple message, String task, String oid) throws TransactionException {
 		JsonSimple response = new JsonSimple();
 
 		// *******************
@@ -650,6 +650,9 @@ public class CurationManager extends GenericTransactionManager {
 					responseObj.put("originOid", oid);
 					responseObj.put("curatedPid", thisPid);
 				}
+				//JCU: now that the responses have been sent, remove them, so they are not sent again. Otherwise, they just keep getting resent and performance suffers greatly.
+				responses.clear();
+				saveObjectData(data, oid);
 
 				// Set a flag to let publish events that may come in later
 				// that this is ready to publish (if not already set)
@@ -1279,7 +1282,7 @@ public class CurationManager extends GenericTransactionManager {
 	 * @param oid
 	 *            The object identifier to publish
 	 */
-	private void publishRelations(JsonSimple response, String oid) {
+	private void publishRelations(JsonSimple response, String oid) throws TransactionException {
 		log.debug("Publishing Children of '{}'", oid);
 
 		JsonSimple data = getDataFromStorage(oid);
@@ -1290,6 +1293,8 @@ public class CurationManager extends GenericTransactionManager {
 							+ " record. Please check the system logs.");
 			return;
 		}
+
+		boolean saveData = false;
 
 		JSONArray relations = data.writeArray("relationships");
 		for (Object relation : relations) {
@@ -1316,7 +1321,9 @@ public class CurationManager extends GenericTransactionManager {
 			if (authority) {
 				// Is this relationship using a curated ID?
 				boolean isCurated = json.getBoolean(false, "isCurated");
-				if (isCurated) {
+				//JCU: adding check for publishMsgSent, if already sent do not send it again. This is a fix to improve performance.
+				boolean publishMsgSent = json.getBoolean(false, "publishMsgSent");
+				if (isCurated && !publishMsgSent) {
 					log.debug(" * Publishing '{}'", relatedId);
 					// It is a local object
 					if (localRecord) {
@@ -1330,11 +1337,25 @@ public class CurationManager extends GenericTransactionManager {
 						task.remove("oid");
 						task.put("identifier", relatedId);
 					}
-				} else {
+
+					//JCU: Adding tag to indicate the publish message has been sent.
+					((JsonObject) relation).put("publishMsgSent", "true");
+					saveData = true;
+
+				} else if (publishMsgSent){
+					log.debug(" * Ignoring already published relationship '{}'",
+							relatedId);
+				}
+				else {
 					log.debug(" * Ignoring non-curated relationship '{}'",
 							relatedId);
 				}
 			}
+		}
+
+		if  (saveData){
+			//updating the relations with publishMsgSent
+			saveObjectData(data, oid);
 		}
 	}
 
